@@ -25,7 +25,6 @@ libclang==18.1.1
 lightgbm==4.6.0
 lxml==5.2.1
 matplotlib==3.9.2
-mkl-service==2.4.0
 ml-dtypes==0.4.1
 namex==0.0.8
 nbdime==4.0.2
