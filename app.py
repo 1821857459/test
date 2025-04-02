@@ -15,8 +15,8 @@ train_file_path = r"FAB-Boninite-HMA-IAT-CA.xlsx"  # Path to the training datase
 train_data = pd.read_excel(train_file_path)
 
 # 2. Data preprocessing
-X_train = train_data.drop(train_data.columns[0], axis=1)  # Features
-y_train = train_data.iloc[:, 0]  # Labels
+X_train = train_data.drop(train_data.columns[0], axis=1)  # Features (exclude the first column as sample name)
+y_train = train_data.iloc[:, 0]  # Labels (the first column is the label)
 
 # Encode labels
 label_encoder = LabelEncoder()
@@ -31,17 +31,21 @@ uploaded_file = st.file_uploader("Upload a new Excel file for prediction", type=
 if uploaded_file is not None:
     input_data = pd.read_excel(uploaded_file)
 
+    # Ensure the first column is the sample name (exclude it from feature matching)
+    sample_names = input_data.iloc[:, 0]  # First column is the sample name
+    input_features = input_data.drop(input_data.columns[0], axis=1)  # Exclude the sample name column from features
+
     # Match column names (case insensitive, ignore suffixes)
     matching_columns = {}
     
     # Process training columns and input data columns by lowercasing and removing extra suffixes
     processed_train_columns = [col.lower().strip() for col in X_train.columns]
-    processed_input_columns = [col.lower().strip() for col in input_data.columns]
+    processed_input_columns = [col.lower().strip() for col in input_features.columns]
 
     # Iterate through the processed columns and find matches
     for col_train, processed_col_train in zip(X_train.columns, processed_train_columns):
         matched = False
-        for col_input, processed_col_input in zip(input_data.columns, processed_input_columns):
+        for col_input, processed_col_input in zip(input_features.columns, processed_input_columns):
             # If the processed column name matches, we map it
             if processed_col_input.startswith(processed_col_train):
                 matching_columns[col_train] = col_input
@@ -50,11 +54,11 @@ if uploaded_file is not None:
         if not matched:
             matching_columns[col_train] = None
 
-    # Prepare input data
+    # Prepare input data for prediction by using matched columns
     X_input = pd.DataFrame()
     for col_train, col_input in matching_columns.items():
         if col_input is not None:
-            X_input[col_train] = input_data[col_input]
+            X_input[col_train] = input_features[col_input]
         else:
             X_input[col_train] = 0  # Fill missing columns with 0
 
