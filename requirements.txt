@@ -36,7 +36,6 @@ py4j==0.10.9.9
 pyls-spyder==0.4.0
 PyQt5==5.15.10
 PyQtWebEngine==5.15.6
-pywin32==305.1
 rise==5.7.1
 setuptools==75.1.0
 shap==0.46.0
