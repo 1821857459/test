@@ -31,14 +31,23 @@ uploaded_file = st.file_uploader("Upload a new Excel file for prediction", type=
 if uploaded_file is not None:
     input_data = pd.read_excel(uploaded_file)
 
-    # Match column names
+    # Match column names (case insensitive, ignore suffixes)
     matching_columns = {}
-    for col_train in X_train.columns:
-        for col_input in input_data.columns:
-            if col_input.lower().startswith(col_train.lower()):
+    
+    # Process training columns and input data columns by lowercasing and removing extra suffixes
+    processed_train_columns = [col.lower().strip() for col in X_train.columns]
+    processed_input_columns = [col.lower().strip() for col in input_data.columns]
+
+    # Iterate through the processed columns and find matches
+    for col_train, processed_col_train in zip(X_train.columns, processed_train_columns):
+        matched = False
+        for col_input, processed_col_input in zip(input_data.columns, processed_input_columns):
+            # If the processed column name matches, we map it
+            if processed_col_input.startswith(processed_col_train):
                 matching_columns[col_train] = col_input
+                matched = True
                 break
-        if col_train not in matching_columns:
+        if not matched:
             matching_columns[col_train] = None
 
     # Prepare input data
