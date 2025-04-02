@@ -58,100 +58,112 @@ if uploaded_file is not None:
     X_input = pd.DataFrame()
     for col_train, col_input in matching_columns.items():
         if col_input is not None:
-            X_input[col_train] = input_features[col_input]
+            try:
+                # Attempt to convert the input column to numeric, if fail, skip this column
+                X_input[col_train] = pd.to_numeric(input_features[col_input], errors='coerce')
+            except Exception as e:
+                # In case of error (e.g., invalid data), ignore this column and continue
+                st.warning(f"Column '{col_input}' contains invalid data and was skipped.")
+                X_input[col_train] = np.nan  # Insert NaN values for this column if invalid data is encountered
         else:
             X_input[col_train] = 0  # Fill missing columns with 0
 
+    # Remove rows with NaN values (skip these rows if any feature is invalid)
+    X_input = X_input.dropna()
+
     # 5. Make predictions
-    predicted_classes = model.predict(X_input)
+    if len(X_input) > 0:
+        predicted_classes = model.predict(X_input)
 
-    # Get prediction probabilities for each sample
-    predicted_probabilities = model.predict_proba(X_input)
+        # Get prediction probabilities for each sample
+        predicted_probabilities = model.predict_proba(X_input)
 
-    # Get the maximum probability for each sample as confidence
-    confidence_scores = np.max(predicted_probabilities, axis=1)
+        # Get the maximum probability for each sample as confidence
+        confidence_scores = np.max(predicted_probabilities, axis=1)
 
-    # Decode the predicted classes
-    predicted_classes = label_encoder.inverse_transform(predicted_classes)
+        # Decode the predicted classes
+        predicted_classes = label_encoder.inverse_transform(predicted_classes)
 
-    # Add predicted classes and confidence scores to the input data
-    input_data['Predicted Class'] = predicted_classes
-    input_data['Confidence'] = confidence_scores  # Add confidence column
+        # Add predicted classes and confidence scores to the input data
+        input_data['Predicted Class'] = predicted_classes
+        input_data['Confidence'] = confidence_scores  # Add confidence column
 
-    # Display the input data with predictions and confidence
-    st.write(input_data)
+        # Display the input data with predictions and confidence
+        st.write(input_data)
 
-    # 6. Plot the scatter plot with the background image
-    # Load background image
-    img_path = r"MgO-SiO2.jpg"
-    img = Image.open(img_path)
+        # 6. Plot the scatter plot with the background image
+        # Load background image
+        img_path = r"MgO-SiO2.jpg"
+        img = Image.open(img_path)
 
-    # Get SiO2 and MgO data
-    if 'SiO2' in input_data.columns and 'MgO' in input_data.columns:
-        sio2 = input_data['SiO2']
-        mgo = input_data['MgO']
+        # Get SiO2 and MgO data
+        if 'SiO2' in input_data.columns and 'MgO' in input_data.columns:
+            sio2 = input_data['SiO2']
+            mgo = input_data['MgO']
+        else:
+            st.error("The input Excel file is missing SiO2 or MgO columns.")
+
+        # Create scatter plot
+        plt.figure(figsize=(10, 10))
+        plt.imshow(img, extent=[45, 70, 0, 25])
+
+        # Use different colors for different classes
+        unique_classes = np.unique(predicted_classes)
+        cmap = plt.get_cmap('tab10')
+        class_colors = {class_name: cmap(i) for i, class_name in enumerate(unique_classes)}  # Color map for each class
+
+        for class_name in unique_classes:
+            class_indices = predicted_classes == class_name
+            plt.scatter(sio2[class_indices], mgo[class_indices], color=class_colors[class_name], label=class_name, alpha=0.6, s=300)
+
+        # Set plot settings
+        plt.xlabel('SiO2', fontsize=16)
+        plt.ylabel('MgO', fontsize=16)
+        plt.title('Scatter Plot of SiO2 and MgO by Class', fontsize=18)
+        plt.legend(ncol=5, handletextpad=0.5, columnspacing=1.0, loc='upper right')
+
+        # Hide axes but show labels with larger font
+        plt.gca().axes.get_xaxis().set_visible(False)
+        plt.gca().axes.get_yaxis().set_visible(False)
+
+        # Show the plot
+        st.pyplot(plt)
+
+        # 7. Generate confidence distribution for each predicted class
+        confidences = model.predict_proba(X_input).max(axis=1)  # Get the confidence
+
+        # Plot for each class
+        for class_name in unique_classes:
+            # Filter confidence data for current class
+            class_confidences = confidences[predicted_classes == class_name]
+
+            # Create a new plot for the class
+            plt.figure(figsize=(10, 6))
+
+            # Plot the histogram for the current class using the class's color
+            plt.hist(class_confidences, bins=20, density=True, alpha=0.7, color=class_colors[class_name], label=f'Predicted Class: {class_name}')
+
+            # Fitting curve (red)
+            if len(class_confidences) > 0:
+                density = gaussian_kde(class_confidences)
+                xs = np.linspace(min(class_confidences), max(class_confidences), 200)
+                plt.plot(xs, density(xs), 'r-', label='Fitting Curve')
+
+            plt.xlabel('Confidence', fontsize=14)
+            plt.ylabel('Density', fontsize=14)
+            plt.title(f'Confidence Distribution for Class {class_name}', fontsize=16)
+            plt.legend()
+            plt.grid(True)
+
+            # Save the current class distribution plot
+            filename = f'{class_name}_confidence_distribution.png'
+            plt.savefig(filename)
+            plt.close()
+
+            # Display the plot
+            st.image(filename, caption=f'Confidence Distribution for {class_name}')
     else:
-        st.error("The input Excel file is missing SiO2 or MgO columns.")
-
-    # Create scatter plot
-    plt.figure(figsize=(10, 10))
-    plt.imshow(img, extent=[45, 70, 0, 25])
-
-    # Use different colors for different classes
-    unique_classes = np.unique(predicted_classes)
-    cmap = plt.get_cmap('tab10')
-    class_colors = {class_name: cmap(i) for i, class_name in enumerate(unique_classes)}  # Color map for each class
-
-    for class_name in unique_classes:
-        class_indices = predicted_classes == class_name
-        plt.scatter(sio2[class_indices], mgo[class_indices], color=class_colors[class_name], label=class_name, alpha=0.6, s=300)
-
-    # Set plot settings
-    plt.xlabel('SiO2', fontsize=16)
-    plt.ylabel('MgO', fontsize=16)
-    plt.title('Scatter Plot of SiO2 and MgO by Class', fontsize=18)
-    plt.legend(ncol=5, handletextpad=0.5, columnspacing=1.0, loc='upper right')
-
-    # Hide axes but show labels with larger font
-    plt.gca().axes.get_xaxis().set_visible(False)
-    plt.gca().axes.get_yaxis().set_visible(False)
-
-    # Show the plot
-    st.pyplot(plt)
-
-    # 7. Generate confidence distribution for each predicted class
-    confidences = model.predict_proba(X_input).max(axis=1)  # Get the confidence
-
-    # Plot for each class
-    for class_name in unique_classes:
-        # Filter confidence data for current class
-        class_confidences = confidences[predicted_classes == class_name]
-
-        # Create a new plot for the class
-        plt.figure(figsize=(10, 6))
-
-        # Plot the histogram for the current class using the class's color
-        plt.hist(class_confidences, bins=20, density=True, alpha=0.7, color=class_colors[class_name], label=f'Predicted Class: {class_name}')
-
-        # Fitting curve (red)
-        if len(class_confidences) > 0:
-            density = gaussian_kde(class_confidences)
-            xs = np.linspace(min(class_confidences), max(class_confidences), 200)
-            plt.plot(xs, density(xs), 'r-', label='Fitting Curve')
-
-        plt.xlabel('Confidence', fontsize=14)
-        plt.ylabel('Density', fontsize=14)
-        plt.title(f'Confidence Distribution for Class {class_name}', fontsize=16)
-        plt.legend()
-        plt.grid(True)
-
-        # Save the current class distribution plot
-        filename = f'{class_name}_confidence_distribution.png'
-        plt.savefig(filename)
-        plt.close()
-
-        # Display the plot
-        st.image(filename, caption=f'Confidence Distribution for {class_name}')
+        st.warning("No valid data available for prediction after cleaning.")
 
 # Display a message indicating that the model has finished loading and training
 st.write("The model has been loaded and trained successfully.")
