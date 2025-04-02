@@ -11,7 +11,7 @@ from PIL import Image
 st.set_page_config(page_title="High Magnesium Andesite Rock Classification Prediction", layout="wide")
 
 # 1. Load the training dataset
-train_file_path = r"D:\JupyterNotebook\lab\FAB-Boninite-HMA-IAT-CA.xlsx"  # Path to the training dataset
+train_file_path = r"FAB-Boninite-HMA-IAT-CA.xlsx"  # Path to the training dataset
 train_data = pd.read_excel(train_file_path)
 
 # 2. Data preprocessing
@@ -70,7 +70,7 @@ if uploaded_file is not None:
 
     # 6. Plot the scatter plot with the background image
     # Load background image
-    img_path = r"D:\JupyterNotebook\lab\MgO-SiO2.jpg"
+    img_path = r"MgO-SiO2.jpg"
     img = Image.open(img_path)
 
     # Get SiO2 and MgO data
